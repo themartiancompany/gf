@@ -1,5 +1,5 @@
 ===============
-Hotspot Resolver Authors
+gf Authors
 ===============
 
 * Pellegrino Prevete <pellegrinoprevete@gmail.com>

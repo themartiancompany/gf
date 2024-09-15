@@ -1,12 +1,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+_PROJECT ?= gf
 PREFIX ?= /usr/local
-DOC_DIR=$(DESTDIR)$(PREFIX)/share/doc/gf
+DOC_DIR=$(DESTDIR)$(PREFIX)/share/doc/$(_PROJECT)
 BIN_DIR=$(DESTDIR)$(PREFIX)/bin
 
 DOC_FILES=$(wildcard *.rst)
-SCRIPT_FILES=$(wildcard gf/*)
+SCRIPT_FILES=$(wildcard $(_PROJECT)/*)
 
 all:
 
@@ -19,7 +20,7 @@ install: install-scripts install-doc
 
 install-scripts:
 
-	install -vDm 755 gf/gf "$(BIN_DIR)/gf"
+	install -vDm 755 "$(_PROJECT)/$(_PROJECT)" "$(BIN_DIR)/$(_PROJECT)"
 
 install-doc:
 
