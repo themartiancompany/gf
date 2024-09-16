@@ -14,6 +14,7 @@ source \
 
 # shellcheck disable=SC2034
 _global_variables() {
+  resolve_date=""
   target_host=()
   color=""
   quiet=""
@@ -33,31 +34,40 @@ _requirements() {
     "proximity-tools"
 }
 
-_wifi_proximity_score_get() {
+_target_area_seed_get() {
   local \
     _target_host="${1}" \
-    _bssids=() \
     _dynssh_opts=() \
-    _remote_cmd=()
+    _cmd=() \
+    _seed
   _dynssh_opts+=(
     -t
       "${_target_host}"
   )
   _cmd=(
-    dynssh
-      "${_dynssh_opts[@]}" --
-      "${_scan_tool}"
+    'area-seed-get'
+      '$(bssid-scan)'
+  ) 
+  _seed="$( \
+    dynssh \
+      "${_dynssh_opts[@]}" -- \
+      "${_target_host}" \
+      "${_cmd[*]}")"
+  echo \
+    "${_seed}"
+}
+
+_wifi_proximity_score_get() {
+  local \
+    _target_host="${1}" \
+    _bssids=() \
+    _seed=()
+  _seed+=( $( \
+    _target_area_seed_get \
+      "${_target_host}")
   )
-  _remote_cmd+=(
-    area-address
-  )
-  _bssids+=( $( \
-    "${_cmd[@]}")
-  )
-  for _bssid in "${_bssids[@]}"; do
-    _checksum \
-      "${_bssid}"
-  done
+  wifi-proximity-score \
+    "${_seed[@]}"
 }
 
 # Geofencer
@@ -67,27 +77,25 @@ _gf() {
     _target_host="${1}" \
     _wifi_proximity_score
   _wifi_proximity_score="$( \
-    _wifi_area_seed_get \
+    _wifi_proximity_score_get \
       "${_target_host}")"
-  _bsss=( $( \
-    bssid-scan)
-  )
-  for _bssid in "${_bsss[@]}"; do
-    _sight="$( \
-      _sight_get \
-        "${_bssid}")"
-    for _pic in \
-      "${_pics}"; do
-      if [[ "${_pic}" == "${_sight}" ]]; then
-        _score="$((_score + 1))"
-      fi
-    done
-  done
+  if (( 0 < "${_wifi_proximity_score}" )); then
+    echo \
+      "wifi"
+  fi
   echo \
-    "${_score}"
+    'wan'
 }
 
 _set_overrides() {
+  _set_override \
+    "resolve" \
+    "date" \
+    "$(_get_date_human)"
+  _set_override \
+    "target" \
+    "host" \
+    ''
   if [[ -v override_quiet ]]; then
     quiet="${override_quiet}"
   elif [[ -z "${quiet}" ]]; then
@@ -116,8 +124,8 @@ assumed vulnerable geofencer
 usage:
   $(_get "app" "name")
     [options]
-    [area seed]
   options:
+     -t <target_host>     Host to get proximity to.
      -h                   This message.
      -c                   Enable color output
      -v                   Enable verbose output
@@ -129,31 +137,11 @@ ENDUSAGETEXT
     "${_exit}"
 }
 
-_display_flags() {
-  local \
-    _flags=(
-      "${1}"
-    ) \
-    _flag
-  for _flag \
-    in "${_flags[@]}"; do
-  _msg_info \
-    "                             ${_flag}"
-  done
-}
-
 # Shows configuration options.
 _show_config() {
-  local \
-    _resolve_date
-  TZ=UTC \
-    printf \
-      -v _resolve_date \
-      '%(%FT%R%z)T' \
-      "${SOURCE_DATE_EPOCH}"
   _msg_info "${app_name} configuration"
-  _msg_info "             Resolve date:   $(_get "_resolve" "date")"
-  _msg_info "                Area seed:   $(_get "area" "seed")"
+  _msg_info "             Resolve date:   $(_get "resolve" "date")"
+  _msg_info "              Target host:   $(_get "target" "host")"
 }
 
 _globals
@@ -189,19 +177,13 @@ shift \
   $(( \
     OPTIND - 1 \
   ))
-area_seed=(
-  "$@"
-)
 _set_overrides
 app_opts=(
-  "${_target_host}"
-  "${area_seed[@]}"
+  "${target_host}"
 )
-if [[ "${area_seed[*]}" == "" ]]; then
+if [[ "${target_host}" == "" ]]; then
   _msg_error \
-    "no area seed given" \
-    0
-  _usage \
+    "a target host must be specified with -t" \
     1
 fi
 _show_config
