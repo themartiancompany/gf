@@ -82,9 +82,10 @@ _gf() {
   if (( 0 < "${_wifi_proximity_score}" )); then
     echo \
       "wifi"
+  else
+    echo \
+      'wan'
   fi
-  echo \
-    'wan'
 }
 
 _set_overrides() {
